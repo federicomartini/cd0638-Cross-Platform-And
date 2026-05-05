@@ -30,6 +30,7 @@ kotlin {
             implementation(libs.androidx.activity.compose)
             implementation(libs.androidx.compose.material3.window.size)
             implementation(libs.androidx.work.runtime)
+            implementation(libs.coil.network.okhttp)
         }
         commonMain.dependencies {
             implementation(projects.shared)
@@ -41,6 +42,7 @@ kotlin {
             implementation(compose.components.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
+            implementation(libs.coil.compose)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

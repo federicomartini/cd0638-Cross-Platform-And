@@ -22,6 +22,7 @@ koin-compose = "4.0.2"
 room = "2.7.0-alpha12"
 sqlite-bundled = "2.5.1"
 androidx-work = "2.10.5"
+coil = "3.1.0"
 
 [libraries]
 # Kotlin Test
@@ -68,6 +69,8 @@ sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "sql
 
 # WorkManager
 androidx-work-runtime = { module = "androidx.work:work-runtime-ktx", version.ref = "androidx-work" }
+coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
+coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
