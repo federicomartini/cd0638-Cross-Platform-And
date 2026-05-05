@@ -146,8 +146,8 @@ Both models are annotated with `@Serializable` for kotlinx.serialization support
 ### Clone the Repository
 
 ```bash
-git clone https://github.com/kshitizbali/Udacity-Demo-Project.git
-cd ConferenceIODemo
+git clone https://github.com/federicomartini/cd0638-Cross-Platform-And.git
+cd cd0638-Cross-Platform-And
 ```
 
 ### Build and Run Android Application
