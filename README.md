@@ -192,6 +192,34 @@ To install on a connected device or emulator:
 2. Select a simulator or connected iOS device
 3. Click the Run button or press `Cmd + R`
 
+## Application Screenshots
+
+The following screenshots show the application running on an Android Studio Pixel 10 emulator.
+
+### Android - Session List
+
+Conference sessions loaded from the remote API and persisted locally for offline access.
+
+![Android session list](./screenshots/Screenshot_20260505_124451.png)
+
+### Android - Session Detail (Phone Navigation)
+
+Smartphone detail page opened from the list with in-app back navigation support.
+
+![Android phone detail](./screenshots/Screenshot_20260505_124553.png)
+
+### Android - Speaker Information and Avatar (Landscape)
+
+Session detail showing speaker fields (`name`, `company`, `bio`, `avatar`, IDs), with avatar fallback behavior.
+
+![Android speaker details](./screenshots/Screenshot_20260505_124611.png)
+
+### Android - Additional Runtime State
+
+Additional runtime capture of the app interaction flow on emulator.
+
+![Android additional state](./screenshots/Screenshot_20260505_115334.png)
+
 ## Next Steps
 
 This starter code provides the foundation. You can now:
