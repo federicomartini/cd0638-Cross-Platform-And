@@ -16,19 +16,24 @@ kotlin {
     
     listOf(
         iosArm64(),
-        iosSimulatorArm64()
+        iosSimulatorArm64(),
+        iosX64(),
     ).forEach { iosTarget ->
         iosTarget.binaries.framework {
             baseName = "ComposeApp"
             isStatic = true
+            linkerOpts.add("-lsqlite3")
         }
     }
     
     sourceSets {
+        iosMain.dependencies {
+            implementation(libs.coil.network.ktor3)
+            implementation(libs.ktor.client.darwin)
+        }
         androidMain.dependencies {
             implementation(compose.preview)
             implementation(libs.androidx.activity.compose)
-            implementation(libs.androidx.compose.material3.window.size)
             implementation(libs.androidx.work.runtime)
             implementation(libs.coil.network.okhttp)
         }

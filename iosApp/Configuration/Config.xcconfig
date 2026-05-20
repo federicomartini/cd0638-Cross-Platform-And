@@ -1,3 +1,4 @@
+// Set your Apple Developer Team ID (Signing & Capabilities in Xcode fills this automatically).
 TEAM_ID=
 
 PRODUCT_NAME=ConferenceIODemo

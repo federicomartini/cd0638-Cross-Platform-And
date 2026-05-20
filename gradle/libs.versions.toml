@@ -20,8 +20,8 @@ kotlinx-datetime = "0.7.1"
 ktor = "3.0.3"
 koin = "4.0.2"
 koin-compose = "4.0.2"
-room = "2.7.0-alpha12"
-sqlite-bundled = "2.5.1"
+room = "2.7.0"
+sqlite = "2.6.2"
 androidx-work = "2.10.5"
 coil = "3.1.0"
 
@@ -69,12 +69,15 @@ koin-android = { module = "io.insert-koin:koin-android", version.ref = "koin" }
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
-sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "sqlite-bundled" }
+sqlite = { module = "androidx.sqlite:sqlite", version.ref = "sqlite" }
+sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "sqlite" }
+sqlite-framework = { module = "androidx.sqlite:sqlite-framework", version.ref = "sqlite" }
 
 # WorkManager
 androidx-work-runtime = { module = "androidx.work:work-runtime-ktx", version.ref = "androidx-work" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil" }
+coil-network-ktor3 = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil" }
 
 [plugins]
 androidx-room = { id = "androidx.room", version.ref = "room" }

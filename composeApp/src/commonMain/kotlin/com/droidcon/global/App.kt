@@ -2,6 +2,7 @@ package com.droidcon.global
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -52,15 +53,21 @@ import com.droidcon.global.domain.model.Session
 /** Row padding (16) + time column (108) + spacer (12) — keep in sync with SessionRow. */
 private val ScheduleListDividerStart = 136.dp
 
+/** Matches Material3 [WindowWidthSizeClass.Medium] lower bound (same as Android calculateWindowSizeClass). */
+private val ExpandedLayoutMinWidth = 600.dp
+
 @Composable
 @Preview
-fun App(isExpandedLayout: Boolean = false) {
+fun App(isExpandedLayout: Boolean? = null) {
+    CoilPlatformSetup()
     val vm: SessionsViewModel = viewModel { SessionsViewModel() }
     val state by vm.uiState.collectAsStateWithLifecycle()
 
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
-            when (val current = state) {
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                val useExpandedLayout = isExpandedLayout ?: (maxWidth >= ExpandedLayoutMinWidth)
+                when (val current = state) {
                 is SessionsUiState.Loading -> LoadingState()
                 is SessionsUiState.Error -> ErrorState(current.message)
                 is SessionsUiState.Success -> {
@@ -77,7 +84,7 @@ fun App(isExpandedLayout: Boolean = false) {
                         }
                     }
 
-                    if (isExpandedLayout) {
+                    if (useExpandedLayout) {
                         ExpandedSessionsLayout(
                             sessions = current.sessions,
                             speakersBySessionId = current.speakersBySessionId,
@@ -100,6 +107,7 @@ fun App(isExpandedLayout: Boolean = false) {
                             }
                         )
                     }
+                }
                 }
             }
         }

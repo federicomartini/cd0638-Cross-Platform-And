@@ -22,13 +22,18 @@ kotlin {
     }
 
     listOf(
-        iosX64(),
         iosArm64(),
-        iosSimulatorArm64()
+        iosSimulatorArm64(),
+        iosX64(),
     ).forEach { iosTarget ->
         iosTarget.binaries.framework {
             baseName = "Shared"
             isStatic = true
+            linkerOpts.add("-lsqlite3")
+            export(libs.room.runtime)
+            export(libs.sqlite)
+            export(libs.sqlite.bundled)
+            export(libs.sqlite.framework)
         }
     }
 
@@ -46,9 +51,11 @@ kotlin {
             implementation(libs.ktor.client.serialization)
             implementation(libs.ktor.client.logging)
 
-            // Room
-            implementation(libs.room.runtime)
-            implementation(libs.sqlite.bundled)
+            // Room + SQLite (api so iOS framework exports sqlite extensions such as Statement.use)
+            api(libs.room.runtime)
+            api(libs.sqlite)
+            api(libs.sqlite.bundled)
+            api(libs.sqlite.framework)
         }
 
         androidMain.dependencies {
@@ -63,6 +70,7 @@ kotlin {
         iosMain.dependencies {
             // Ktor Client - Darwin for iOS
             implementation(libs.ktor.client.darwin)
+            implementation(libs.sqlite.framework)
         }
     }
 }
@@ -71,16 +79,11 @@ room {
     schemaDirectory("$projectDir/schemas")
 }
 
-// Ensures KSP annotation processor receives schema path (Room plugin alone can omit this on KMP Android KSP).
-ksp {
-    arg("room.schemaLocation", file("$projectDir/schemas").absolutePath)
-}
-
 dependencies {
     add("kspAndroid", libs.room.compiler)
-    add("kspIosX64", libs.room.compiler)
     add("kspIosArm64", libs.room.compiler)
     add("kspIosSimulatorArm64", libs.room.compiler)
+    add("kspIosX64", libs.room.compiler)
 }
 
 android {
