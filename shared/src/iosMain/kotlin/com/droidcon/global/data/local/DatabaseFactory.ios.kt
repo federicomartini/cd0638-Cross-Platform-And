@@ -7,8 +7,7 @@ import platform.Foundation.NSHomeDirectory
 fun createIosDatabase(): ConferenceDatabase {
     val dbPath = NSHomeDirectory() + "/conference.db"
     return Room.databaseBuilder<ConferenceDatabase>(
-        name = dbPath,
-        factory = { ConferenceDatabaseConstructor.initialize() }
+        name = dbPath
     )
         .setDriver(BundledSQLiteDriver())
         .build()

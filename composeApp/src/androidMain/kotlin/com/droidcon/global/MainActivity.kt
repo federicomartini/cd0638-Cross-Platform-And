@@ -9,7 +9,11 @@ import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.droidcon.global.data.local.createAndroidDatabase
@@ -28,13 +32,30 @@ class MainActivity : ComponentActivity() {
             App(isExpandedLayout = expanded)
         }
 
-        val request = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)
-            .setInitialDelay(15, TimeUnit.MINUTES)
+        val syncConstraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .setRequiresBatteryNotLow(true)
             .build()
-        WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
+        val wm = WorkManager.getInstance(applicationContext)
+
+        if (savedInstanceState == null) {
+            val immediateSync = OneTimeWorkRequestBuilder<SyncWorker>()
+                .setConstraints(syncConstraints)
+                .build()
+            wm.enqueueUniqueWork(
+                "conference_sync_immediate",
+                ExistingWorkPolicy.KEEP,
+                immediateSync
+            )
+        }
+
+        val periodicSync = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)
+            .setConstraints(syncConstraints)
+            .build()
+        wm.enqueueUniquePeriodicWork(
             "conference_sync",
             ExistingPeriodicWorkPolicy.UPDATE,
-            request
+            periodicSync
         )
     }
 }

@@ -7,28 +7,39 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.VerticalDivider
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -37,6 +48,9 @@ import coil3.compose.SubcomposeAsyncImage
 import com.droidcon.global.domain.model.Speaker
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import com.droidcon.global.domain.model.Session
+
+/** Row padding (16) + time column (108) + spacer (12) — keep in sync with SessionRow. */
+private val ScheduleListDividerStart = 136.dp
 
 @Composable
 @Preview
@@ -50,10 +64,41 @@ fun App(isExpandedLayout: Boolean = false) {
                 is SessionsUiState.Loading -> LoadingState()
                 is SessionsUiState.Error -> ErrorState(current.message)
                 is SessionsUiState.Success -> {
+                    var selectedSessionId by rememberSaveable { mutableStateOf<String?>(null) }
+                    var showDetail by rememberSaveable { mutableStateOf(false) }
+
+                    LaunchedEffect(current.sessions, selectedSessionId) {
+                        if (current.sessions.isEmpty()) return@LaunchedEffect
+                        if (selectedSessionId != null &&
+                            current.sessions.none { it.id == selectedSessionId }
+                        ) {
+                            selectedSessionId = null
+                            showDetail = false
+                        }
+                    }
+
                     if (isExpandedLayout) {
-                        ExpandedSessionsLayout(current.sessions, current.speakersBySessionId)
+                        ExpandedSessionsLayout(
+                            sessions = current.sessions,
+                            speakersBySessionId = current.speakersBySessionId,
+                            selectedSessionId = selectedSessionId,
+                            onSessionSelected = { selectedSessionId = it }
+                        )
                     } else {
-                        CompactSessionsLayout(current.sessions, current.speakersBySessionId)
+                        CompactSessionsLayout(
+                            sessions = current.sessions,
+                            speakersBySessionId = current.speakersBySessionId,
+                            selectedSessionId = selectedSessionId,
+                            showDetail = showDetail,
+                            onSessionSelected = { sessionId ->
+                                selectedSessionId = sessionId
+                                showDetail = true
+                            },
+                            onDismissDetail = {
+                                showDetail = false
+                                selectedSessionId = null
+                            }
+                        )
                     }
                 }
             }
@@ -64,16 +109,28 @@ fun App(isExpandedLayout: Boolean = false) {
 @Composable
 private fun LoadingState() {
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .displayCutoutPadding()
+            .navigationBarsPadding()
+            .padding(horizontal = 24.dp),
         verticalArrangement = Arrangement.Center
     ) {
-        CircularProgressIndicator(modifier = Modifier.padding(horizontal = 24.dp))
+        CircularProgressIndicator(modifier = Modifier.fillMaxWidth())
     }
 }
 
 @Composable
 private fun ErrorState(message: String) {
-    Column(modifier = Modifier.padding(24.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .displayCutoutPadding()
+            .navigationBarsPadding()
+            .padding(24.dp)
+    ) {
         Text("Unable to load sessions", style = MaterialTheme.typography.titleMedium)
         Text(message, style = MaterialTheme.typography.bodyMedium)
     }
@@ -82,57 +139,78 @@ private fun ErrorState(message: String) {
 @Composable
 private fun CompactSessionsLayout(
     sessions: List<Session>,
-    speakersBySessionId: Map<String, List<Speaker>>
+    speakersBySessionId: Map<String, List<Speaker>>,
+    selectedSessionId: String?,
+    showDetail: Boolean,
+    onSessionSelected: (String) -> Unit,
+    onDismissDetail: () -> Unit
 ) {
-    var selectedSessionId by rememberSaveable { mutableStateOf<String?>(null) }
-    var showDetail by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(showDetail, selectedSessionId, sessions) {
+        if (!showDetail) return@LaunchedEffect
+        if (selectedSessionId == null || sessions.none { it.id == selectedSessionId }) {
+            onDismissDetail()
+        }
+    }
 
     if (showDetail) {
         val session = sessions.firstOrNull { it.id == selectedSessionId }
-        if (session == null) {
-            showDetail = false
-        } else {
+        if (session != null) {
+            PlatformBackHandler(enabled = true) { onDismissDetail() }
             SessionDetail(
                 session = session,
                 speakers = speakersBySessionId[session.id].orEmpty(),
-                onBack = { showDetail = false }
+                onBack = onDismissDetail
             )
         }
     } else {
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
-            items(sessions) { session ->
-                SessionRow(
-                    session = session,
-                    speakers = speakersBySessionId[session.id].orEmpty(),
-                    onClick = {
-                        selectedSessionId = session.id
-                        showDetail = true
-                    }
-                )
-            }
-        }
+        ScheduleSessionList(
+            sessions = sessions,
+            speakersBySessionId = speakersBySessionId,
+            onSessionClick = { onSessionSelected(it.id) },
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .displayCutoutPadding()
+                .navigationBarsPadding()
+        )
     }
 }
 
 @Composable
 private fun ExpandedSessionsLayout(
     sessions: List<Session>,
-    speakersBySessionId: Map<String, List<Speaker>>
+    speakersBySessionId: Map<String, List<Speaker>>,
+    selectedSessionId: String?,
+    onSessionSelected: (String) -> Unit
 ) {
-    var selectedSessionId by rememberSaveable { mutableStateOf(sessions.firstOrNull()?.id) }
+    LaunchedEffect(sessions, selectedSessionId) {
+        if (sessions.isEmpty()) return@LaunchedEffect
+        if (selectedSessionId == null || sessions.none { it.id == selectedSessionId }) {
+            onSessionSelected(sessions.first().id)
+        }
+    }
+
     val selected = sessions.firstOrNull { it.id == selectedSessionId } ?: sessions.firstOrNull()
     val selectedSpeakers = selected?.let { speakersBySessionId[it.id].orEmpty() }.orEmpty()
-    Row(modifier = Modifier.fillMaxSize()) {
-        LazyColumn(modifier = Modifier.weight(1f).fillMaxHeight()) {
-            items(sessions) { session ->
-                SessionRow(
-                    session = session,
-                    speakers = speakersBySessionId[session.id].orEmpty(),
-                    onClick = { selectedSessionId = session.id }
-                )
-            }
-        }
-        Box(modifier = Modifier.weight(1f).padding(16.dp)) {
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .displayCutoutPadding()
+            .navigationBarsPadding()
+    ) {
+        ScheduleSessionList(
+            sessions = sessions,
+            speakersBySessionId = speakersBySessionId,
+            onSessionClick = { onSessionSelected(it.id) },
+            modifier = Modifier.weight(1f).fillMaxHeight()
+        )
+        VerticalDivider(modifier = Modifier.fillMaxHeight())
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+        ) {
             if (selected != null) {
                 SessionDetail(session = selected, speakers = selectedSpeakers, onBack = null)
             } else {
@@ -143,48 +221,200 @@ private fun ExpandedSessionsLayout(
 }
 
 @Composable
+private fun ScheduleSessionList(
+    sessions: List<Session>,
+    speakersBySessionId: Map<String, List<Speaker>>,
+    onSessionClick: (Session) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    LazyColumn(modifier = modifier) {
+        items(
+            count = sessions.size + 1,
+            key = { index ->
+                if (index == 0) "schedule_header" else sessions[index - 1].id
+            }
+        ) { index ->
+            if (index == 0) {
+                Text(
+                    text = "Schedule",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                )
+            } else {
+                val sessionIndex = index - 1
+                val session = sessions[sessionIndex]
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    SessionRow(
+                        session = session,
+                        speakers = speakersBySessionId[session.id].orEmpty(),
+                        onClick = { onSessionClick(session) }
+                    )
+                    if (sessionIndex < sessions.lastIndex) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = ScheduleListDividerStart, end = 16.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun SessionRow(session: Session, speakers: List<Speaker>, onClick: () -> Unit) {
-    Column(
+    val timeLines = formatSessionTimeRangeForListLines(session)
+    val room = session.room.trim()
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.Top
     ) {
-        Text(session.title, style = MaterialTheme.typography.titleSmall)
-        Text(
-            text = session.description,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.bodySmall
-        )
-        Text(
-            text = if (speakers.isEmpty()) "Speakers: not available" else "Speakers: ${speakers.joinToString { it.name }}",
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.bodySmall
-        )
+        Column(
+            modifier = Modifier.width(108.dp),
+            horizontalAlignment = Alignment.End
+        ) {
+            if (timeLines.isNotEmpty()) {
+                timeLines.forEach { line ->
+                    Text(
+                        text = line,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = TextAlign.End,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            } else {
+                Text(
+                    text = "—",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.End
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            if (session.isServiceSession) {
+                Text(
+                    text = "Break · service",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
+            }
+            Text(
+                text = session.title,
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (room.isNotBlank()) {
+                Text(
+                    text = room,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Text(
+                text = session.description,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = if (speakers.isEmpty()) {
+                    "Speakers: not available"
+                } else {
+                    speakers.joinToString(prefix = "With ") { it.name }
+                },
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
     }
 }
 
 @Composable
 private fun SessionDetail(session: Session, speakers: List<Speaker>, onBack: (() -> Unit)?) {
+    val scrollState = rememberScrollState()
+    val isPhoneFullscreen = onBack != null
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .statusBarsPadding()
+            .verticalScroll(scrollState)
+            .then(
+                if (isPhoneFullscreen) {
+                    Modifier
+                        .statusBarsPadding()
+                        .displayCutoutPadding()
+                        .navigationBarsPadding()
+                } else {
+                    Modifier
+                }
+            )
+            .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
         if (onBack != null) {
-            Button(onClick = onBack) { Text("Back") }
-            Spacer(modifier = Modifier.size(8.dp))
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Navigate back"
+                )
+            }
+            Spacer(modifier = Modifier.size(4.dp))
         }
-        Text("Selected session", style = MaterialTheme.typography.titleMedium)
-        Text(session.title)
-        Text(session.description)
-        Text("Room: ${session.room}")
-        Text("Session ID: ${session.id}", style = MaterialTheme.typography.bodySmall)
-        Text("Speakers:", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
+        if (session.isServiceSession) {
+            Text(
+                text = "Break · service session",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.tertiary
+            )
+            Spacer(modifier = Modifier.size(4.dp))
+        }
+        Text(
+            text = session.title,
+            style = MaterialTheme.typography.headlineSmall
+        )
+        val timeLabel = formatSessionTimeRangeForDetail(session)
+        if (timeLabel.isNotBlank()) {
+            Text(
+                text = timeLabel,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(top = 8.dp),
+                maxLines = 4
+            )
+        }
+        Text(
+            text = if (session.room.isBlank()) {
+                "Room to be announced"
+            } else {
+                "Room: ${session.room}"
+            },
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+        Text(
+            text = session.description,
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Text(
+            "Speakers",
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.padding(top = 16.dp)
+        )
         if (speakers.isEmpty()) {
-            Text("No speakers available", style = MaterialTheme.typography.bodySmall)
+            Text("No speakers listed for this session.", style = MaterialTheme.typography.bodySmall)
         } else {
             speakers.forEach { speaker ->
                 SpeakerDetails(speaker)
@@ -195,24 +425,16 @@ private fun SessionDetail(session: Session, speakers: List<Speaker>, onBack: (()
 
 @Composable
 private fun SpeakerDetails(speaker: Speaker) {
-    Column(modifier = Modifier.padding(top = 8.dp)) {
+    Column(modifier = Modifier.padding(top = 12.dp)) {
         AvatarImage(avatarUrl = speaker.avatar, fallbackSeed = speaker.name)
-        Text("• Name: ${speaker.name}", style = MaterialTheme.typography.bodySmall)
-        Text("  Company: ${speaker.company}", style = MaterialTheme.typography.bodySmall)
-        Text(
-            "  Bio: ${speaker.bio}",
-            style = MaterialTheme.typography.bodySmall,
-            maxLines = 3,
-            overflow = TextOverflow.Ellipsis
-        )
-        Text(
-            "  Avatar: ${speaker.avatar}",
-            style = MaterialTheme.typography.bodySmall,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        Text("  Speaker ID: ${speaker.id}", style = MaterialTheme.typography.bodySmall)
-        Text("  Session ID: ${speaker.sessionId}", style = MaterialTheme.typography.bodySmall)
+        Spacer(modifier = Modifier.size(8.dp))
+        Text(speaker.name, style = MaterialTheme.typography.titleSmall)
+        if (speaker.company.isNotBlank()) {
+            Text(speaker.company, style = MaterialTheme.typography.bodyMedium)
+        }
+        if (speaker.bio.isNotBlank()) {
+            Text(speaker.bio, style = MaterialTheme.typography.bodySmall)
+        }
     }
 }
 

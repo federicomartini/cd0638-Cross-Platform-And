@@ -8,9 +8,7 @@ import com.droidcon.global.domain.usecase.GetSessionsUseCase
 import com.droidcon.global.domain.usecase.RefreshConferenceDataUseCase
 
 object SharedGraph {
-    @Volatile
     private var initialized = false
-    private val lock = Any()
     private lateinit var database: ConferenceDatabase
 
     val repository: ConferenceRepository by lazy {
@@ -27,7 +25,7 @@ object SharedGraph {
     }
 
     fun init(database: ConferenceDatabase) {
-        synchronized(lock) {
+        sharedGraphSynchronized {
             if (!initialized) {
                 this.database = database
                 initialized = true
@@ -36,8 +34,7 @@ object SharedGraph {
     }
 
     fun initIfNeeded(databaseProvider: () -> ConferenceDatabase) {
-        if (initialized) return
-        synchronized(lock) {
+        sharedGraphSynchronized {
             if (!initialized) {
                 this.database = databaseProvider()
                 initialized = true

@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.droidcon.global.data.local.createAndroidDatabase
+import com.droidcon.global.data.remote.ConferenceApiException
+import kotlinx.coroutines.CancellationException
 
 class SyncWorker(
     appContext: Context,
@@ -11,11 +13,15 @@ class SyncWorker(
 ) : CoroutineWorker(appContext, params) {
     override suspend fun doWork(): Result {
         SharedGraph.initIfNeeded { createAndroidDatabase(applicationContext) }
-        return runCatching {
+        return try {
             SharedGraph.repository.refresh()
-        }.fold(
-            onSuccess = { Result.success() },
-            onFailure = { Result.retry() }
-        )
+            Result.success()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: ConferenceApiException) {
+            Result.failure()
+        } catch (error: Exception) {
+            Result.retry()
+        }
     }
 }

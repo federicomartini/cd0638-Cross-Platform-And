@@ -200,19 +200,19 @@ The following screenshots show the application running on an Android Studio Pixe
 
 Conference sessions loaded from the remote API and persisted locally for offline access.
 
-![Android session list](./screenshots/Screenshot_20260505_124451.png)
+![Android session list](./screenshots/Screenshot_20260520_193853.png)
 
 ### Android - Session Detail (Phone Navigation)
 
 Smartphone detail page opened from the list with in-app back navigation support.
 
-![Android phone detail](./screenshots/Screenshot_20260505_124553.png)
+![Android phone detail](./screenshots/Screenshot_20260520_193923.png)
 
-### Android - Speaker Information and Avatar (Landscape)
+### Android - Speaker Information and Avatar (Tablet Landscape)
 
 Session detail showing speaker fields (`name`, `company`, `bio`, `avatar`, IDs), with avatar fallback behavior.
 
-![Android speaker details](./screenshots/Screenshot_20260505_124611.png)
+![Android speaker details](./screenshots/Screenshot_20260520_200859.png)
 
 ### Android - Additional Runtime State
 

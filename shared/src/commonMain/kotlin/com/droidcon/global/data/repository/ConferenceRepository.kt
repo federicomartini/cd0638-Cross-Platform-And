@@ -8,6 +8,7 @@ import com.droidcon.global.data.remote.model.SessionDto
 import com.droidcon.global.data.remote.model.SpeakerDto
 import com.droidcon.global.domain.model.Session
 import com.droidcon.global.domain.model.Speaker
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
@@ -28,16 +29,17 @@ class ConferenceRepository(
     suspend fun refresh() {
         refreshMutex.withLock {
             val sessions = api.getSessions()
-            database.sessionDao().insertAll(sessions.map { it.toEntity() })
-
             val allSpeakers = sessions.flatMap { session ->
-                runCatching { api.getSpeakers(session.id) }
-                    .getOrElse { emptyList() }
-                    .map { speaker ->
-                        speaker.copy(sessionId = speaker.sessionId.ifBlank { session.id })
-                    }
+                val speakers = api.getSpeakers(session.id)
+                delay(120)
+                speakers.map { speaker ->
+                    speaker.copy(sessionId = speaker.sessionId.ifBlank { session.id })
+                }
             }
-            database.speakerDao().insertAll(allSpeakers.map { it.toEntity() })
+            val sessionEntities = sessions.map { it.toEntity() }
+            val speakerEntities = allSpeakers.map { it.toEntity() }
+
+            database.conferenceSyncDao().replaceAll(sessionEntities, speakerEntities)
         }
     }
 }
