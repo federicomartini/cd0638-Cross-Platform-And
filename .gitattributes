@@ -1,0 +1,2 @@
+# Keep the Gradle wrapper script Unix-friendly for reviewers on macOS/Linux.
+gradlew text eol=lf
