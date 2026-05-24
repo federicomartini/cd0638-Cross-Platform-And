@@ -9,6 +9,7 @@ import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -55,7 +56,18 @@ class ConferenceApi {
     ): T {
         var backoffMs = INITIAL_BACKOFF_MS
         repeat(MAX_ATTEMPTS) { attempt ->
-            val response = requestMutex.withLock { client.get(url) }
+            val response = try {
+                requestMutex.withLock { client.get(url) }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                if (attempt == MAX_ATTEMPTS - 1) {
+                    throw ConferenceApiException("Network error requesting $url", error)
+                }
+                backoffMs = delayBeforeRetry(backoffMs, retryAfterMs = null)
+                return@repeat
+            }
+
             when {
                 response.status.isSuccess() -> return parseSuccess(response)
                 response.status.value == 404 && notFoundValue != null -> return notFoundValue
@@ -66,8 +78,7 @@ class ConferenceApi {
                     val retryAfterMs = response.headers["Retry-After"]
                         ?.toLongOrNull()
                         ?.times(1_000L)
-                    delay((retryAfterMs ?: backoffMs) + Random.nextLong(0, JITTER_MS))
-                    backoffMs = (backoffMs * 2).coerceAtMost(MAX_BACKOFF_MS)
+                    backoffMs = delayBeforeRetry(backoffMs, retryAfterMs)
                 }
                 else -> throw ConferenceApiException(
                     "Request failed (${response.status.value} ${response.status.description}) for $url",
@@ -75,6 +86,11 @@ class ConferenceApi {
             }
         }
         throw ConferenceApiException("Rate limit retries exhausted for $url")
+    }
+
+    private suspend fun delayBeforeRetry(currentBackoffMs: Long, retryAfterMs: Long?): Long {
+        delay((retryAfterMs ?: currentBackoffMs) + Random.nextLong(0, JITTER_MS))
+        return (currentBackoffMs * 2).coerceAtMost(MAX_BACKOFF_MS)
     }
 
     private fun rateLimitException(response: HttpResponse, url: String): ConferenceApiException =

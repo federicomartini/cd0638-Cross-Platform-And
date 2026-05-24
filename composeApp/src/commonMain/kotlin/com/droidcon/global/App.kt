@@ -28,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -71,7 +72,10 @@ fun App(isExpandedLayout: Boolean? = null) {
                 val useExpandedLayout = isExpandedLayout ?: (maxWidth >= ExpandedLayoutMinWidth)
                 when (val current = state) {
                 is SessionsUiState.Loading -> LoadingState()
-                is SessionsUiState.Error -> ErrorState(current.message)
+                is SessionsUiState.Error -> ErrorState(
+                    message = current.message,
+                    onRetry = vm::retry,
+                )
                 is SessionsUiState.Success -> {
                     var selectedSessionId by rememberSaveable { mutableStateOf<String?>(null) }
                     var showDetail by rememberSaveable { mutableStateOf(false) }
@@ -134,17 +138,21 @@ private fun LoadingState() {
 }
 
 @Composable
-private fun ErrorState(message: String) {
+private fun ErrorState(message: String, onRetry: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .statusBarsPadding()
             .displayCutoutPadding()
             .navigationBarsPadding()
-            .padding(24.dp)
+            .padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text("Unable to load sessions", style = MaterialTheme.typography.titleMedium)
         Text(message, style = MaterialTheme.typography.bodyMedium)
+        Button(onClick = onRetry) {
+            Text("Retry")
+        }
     }
 }
 
