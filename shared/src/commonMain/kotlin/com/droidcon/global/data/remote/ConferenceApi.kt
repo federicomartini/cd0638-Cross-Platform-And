@@ -10,8 +10,11 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlin.random.Random
 
 private const val BASE_URL = "https://694e2d80b5bc648a93bf8dd0.mockapi.io/api/v1"
 
@@ -27,30 +30,63 @@ class ConferenceApi {
         }
     }
 
+  /** Ensures only one in-flight request at a time to reduce mock API 429 responses. */
+    private val requestMutex = Mutex()
+
     suspend fun getSessions(): List<SessionDto> =
-        parseListResponse(client.get("$BASE_URL/sessions"))
+        requestWithRateLimitRetry("$BASE_URL/sessions") { response ->
+            parseListResponse<SessionDto>(response)
+        }
 
     suspend fun getSpeakers(sessionId: String): List<SpeakerDto> {
         val url = "$BASE_URL/sessions/$sessionId/speakers"
-        repeat(4) { attempt ->
-            val response = client.get(url)
+        return requestWithRateLimitRetry(
+            url = url,
+            notFoundValue = emptyList(),
+        ) { response ->
+            parseListResponse<SpeakerDto>(response)
+        }
+    }
+
+    private suspend fun <T> requestWithRateLimitRetry(
+        url: String,
+        notFoundValue: T? = null,
+        parseSuccess: suspend (HttpResponse) -> T,
+    ): T {
+        var backoffMs = INITIAL_BACKOFF_MS
+        repeat(MAX_ATTEMPTS) { attempt ->
+            val response = requestMutex.withLock { client.get(url) }
             when {
-                response.status.value == 404 -> return emptyList()
-                response.status.isSuccess() -> return parseListResponse(response)
-                response.status.value == 429 && attempt < 3 -> delay(400L * (attempt + 1))
+                response.status.isSuccess() -> return parseSuccess(response)
+                response.status.value == 404 && notFoundValue != null -> return notFoundValue
+                response.status.value == 429 || response.status.value in RETRYABLE_SERVER_ERRORS -> {
+                    if (attempt == MAX_ATTEMPTS - 1) {
+                        throw rateLimitException(response, url)
+                    }
+                    val retryAfterMs = response.headers["Retry-After"]
+                        ?.toLongOrNull()
+                        ?.times(1_000L)
+                    delay((retryAfterMs ?: backoffMs) + Random.nextLong(0, JITTER_MS))
+                    backoffMs = (backoffMs * 2).coerceAtMost(MAX_BACKOFF_MS)
+                }
                 else -> throw ConferenceApiException(
-                    "Request failed (${response.status.value} ${response.status.description}) for $url"
+                    "Request failed (${response.status.value} ${response.status.description}) for $url",
                 )
             }
         }
-        return emptyList()
+        throw ConferenceApiException("Rate limit retries exhausted for $url")
     }
+
+    private fun rateLimitException(response: HttpResponse, url: String): ConferenceApiException =
+        ConferenceApiException(
+            "Request failed (${response.status.value} ${response.status.description}) for $url",
+        )
 
     private suspend inline fun <reified T> parseListResponse(response: HttpResponse): List<T> {
         val url = response.call.request.url.toString()
         if (!response.status.isSuccess()) {
             throw ConferenceApiException(
-                "Request failed (${response.status.value} ${response.status.description}) for $url"
+                "Request failed (${response.status.value} ${response.status.description}) for $url",
             )
         }
 
@@ -58,7 +94,7 @@ class ConferenceApi {
         if (!payload.startsWith("[")) {
             val preview = payload.take(120).ifEmpty { "<empty body>" }
             throw ConferenceApiException(
-                "Expected JSON array from $url, got: $preview"
+                "Expected JSON array from $url, got: $preview",
             )
         }
 
@@ -67,8 +103,16 @@ class ConferenceApi {
         } catch (e: SerializationException) {
             throw ConferenceApiException(
                 "Failed to parse JSON array from $url",
-                e
+                e,
             )
         }
+    }
+
+    private companion object {
+        const val MAX_ATTEMPTS = 8
+        const val INITIAL_BACKOFF_MS = 1_000L
+        const val MAX_BACKOFF_MS = 20_000L
+        const val JITTER_MS = 500L
+        val RETRYABLE_SERVER_ERRORS = 500..599
     }
 }

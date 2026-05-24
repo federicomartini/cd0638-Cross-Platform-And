@@ -47,6 +47,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.SubcomposeAsyncImage
 import com.droidcon.global.domain.model.Speaker
+import com.droidcon.global.domain.model.SpeakerLoadState
+import com.droidcon.global.domain.model.SpeakerSyncState
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import com.droidcon.global.domain.model.Session
 
@@ -88,6 +90,7 @@ fun App(isExpandedLayout: Boolean? = null) {
                         ExpandedSessionsLayout(
                             sessions = current.sessions,
                             speakersBySessionId = current.speakersBySessionId,
+                            speakerSyncState = current.speakerSyncState,
                             selectedSessionId = selectedSessionId,
                             onSessionSelected = { selectedSessionId = it }
                         )
@@ -95,6 +98,7 @@ fun App(isExpandedLayout: Boolean? = null) {
                         CompactSessionsLayout(
                             sessions = current.sessions,
                             speakersBySessionId = current.speakersBySessionId,
+                            speakerSyncState = current.speakerSyncState,
                             selectedSessionId = selectedSessionId,
                             showDetail = showDetail,
                             onSessionSelected = { sessionId ->
@@ -148,6 +152,7 @@ private fun ErrorState(message: String) {
 private fun CompactSessionsLayout(
     sessions: List<Session>,
     speakersBySessionId: Map<String, List<Speaker>>,
+    speakerSyncState: SpeakerSyncState,
     selectedSessionId: String?,
     showDetail: Boolean,
     onSessionSelected: (String) -> Unit,
@@ -167,6 +172,8 @@ private fun CompactSessionsLayout(
             SessionDetail(
                 session = session,
                 speakers = speakersBySessionId[session.id].orEmpty(),
+                speakerLoadState = speakerSyncState.loadStateBySessionId[session.id],
+                speakerRefreshInProgress = speakerSyncState.refreshInProgress,
                 onBack = onDismissDetail
             )
         }
@@ -174,6 +181,7 @@ private fun CompactSessionsLayout(
         ScheduleSessionList(
             sessions = sessions,
             speakersBySessionId = speakersBySessionId,
+            speakerSyncState = speakerSyncState,
             onSessionClick = { onSessionSelected(it.id) },
             modifier = Modifier
                 .fillMaxSize()
@@ -188,6 +196,7 @@ private fun CompactSessionsLayout(
 private fun ExpandedSessionsLayout(
     sessions: List<Session>,
     speakersBySessionId: Map<String, List<Speaker>>,
+    speakerSyncState: SpeakerSyncState,
     selectedSessionId: String?,
     onSessionSelected: (String) -> Unit
 ) {
@@ -210,6 +219,7 @@ private fun ExpandedSessionsLayout(
         ScheduleSessionList(
             sessions = sessions,
             speakersBySessionId = speakersBySessionId,
+            speakerSyncState = speakerSyncState,
             onSessionClick = { onSessionSelected(it.id) },
             modifier = Modifier.weight(1f).fillMaxHeight()
         )
@@ -220,7 +230,13 @@ private fun ExpandedSessionsLayout(
                 .fillMaxHeight()
         ) {
             if (selected != null) {
-                SessionDetail(session = selected, speakers = selectedSpeakers, onBack = null)
+                SessionDetail(
+                    session = selected,
+                    speakers = selectedSpeakers,
+                    speakerLoadState = speakerSyncState.loadStateBySessionId[selected.id],
+                    speakerRefreshInProgress = speakerSyncState.refreshInProgress,
+                    onBack = null,
+                )
             } else {
                 Text("No session", style = MaterialTheme.typography.bodySmall)
             }
@@ -232,6 +248,7 @@ private fun ExpandedSessionsLayout(
 private fun ScheduleSessionList(
     sessions: List<Session>,
     speakersBySessionId: Map<String, List<Speaker>>,
+    speakerSyncState: SpeakerSyncState,
     onSessionClick: (Session) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -257,6 +274,8 @@ private fun ScheduleSessionList(
                     SessionRow(
                         session = session,
                         speakers = speakersBySessionId[session.id].orEmpty(),
+                        speakerLoadState = speakerSyncState.loadStateBySessionId[session.id],
+                        speakerRefreshInProgress = speakerSyncState.refreshInProgress,
                         onClick = { onSessionClick(session) }
                     )
                     if (sessionIndex < sessions.lastIndex) {
@@ -271,7 +290,13 @@ private fun ScheduleSessionList(
 }
 
 @Composable
-private fun SessionRow(session: Session, speakers: List<Speaker>, onClick: () -> Unit) {
+private fun SessionRow(
+    session: Session,
+    speakers: List<Speaker>,
+    speakerLoadState: SpeakerLoadState?,
+    speakerRefreshInProgress: Boolean,
+    onClick: () -> Unit,
+) {
     val timeLines = formatSessionTimeRangeForListLines(session)
     val room = session.room.trim()
     Row(
@@ -337,21 +362,35 @@ private fun SessionRow(session: Session, speakers: List<Speaker>, onClick: () ->
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                text = if (speakers.isEmpty()) {
-                    "Speakers: not available"
-                } else {
-                    speakers.joinToString(prefix = "With ") { it.name }
-                },
+                text = formatSessionSpeakersListLine(
+                    speakers = speakers,
+                    loadState = speakerLoadState,
+                    refreshInProgress = speakerRefreshInProgress,
+                ),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.bodySmall
+                style = MaterialTheme.typography.bodySmall,
+                color = if (speakerLoadState == SpeakerLoadState.Pending ||
+                    speakerLoadState == SpeakerLoadState.Loading ||
+                    (speakers.isEmpty() && speakerRefreshInProgress && speakerLoadState == null)
+                ) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
             )
         }
     }
 }
 
 @Composable
-private fun SessionDetail(session: Session, speakers: List<Speaker>, onBack: (() -> Unit)?) {
+private fun SessionDetail(
+    session: Session,
+    speakers: List<Speaker>,
+    speakerLoadState: SpeakerLoadState?,
+    speakerRefreshInProgress: Boolean,
+    onBack: (() -> Unit)?,
+) {
     val scrollState = rememberScrollState()
     val isPhoneFullscreen = onBack != null
     Column(
@@ -422,7 +461,14 @@ private fun SessionDetail(session: Session, speakers: List<Speaker>, onBack: (()
             modifier = Modifier.padding(top = 16.dp)
         )
         if (speakers.isEmpty()) {
-            Text("No speakers listed for this session.", style = MaterialTheme.typography.bodySmall)
+            val speakersMessage = formatSessionSpeakersDetailMessage(
+                speakers = speakers,
+                loadState = speakerLoadState,
+                refreshInProgress = speakerRefreshInProgress,
+            )
+            if (speakersMessage != null) {
+                Text(speakersMessage, style = MaterialTheme.typography.bodySmall)
+            }
         } else {
             speakers.forEach { speaker ->
                 SpeakerDetails(speaker)

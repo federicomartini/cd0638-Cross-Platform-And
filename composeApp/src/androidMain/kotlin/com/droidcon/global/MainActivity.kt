@@ -8,9 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
-import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.droidcon.global.data.local.createAndroidDatabase
@@ -31,17 +29,6 @@ class MainActivity : ComponentActivity() {
             .setRequiresBatteryNotLow(true)
             .build()
         val wm = WorkManager.getInstance(applicationContext)
-
-        if (savedInstanceState == null) {
-            val immediateSync = OneTimeWorkRequestBuilder<SyncWorker>()
-                .setConstraints(syncConstraints)
-                .build()
-            wm.enqueueUniqueWork(
-                "conference_sync_immediate",
-                ExistingWorkPolicy.KEEP,
-                immediateSync
-            )
-        }
 
         val periodicSync = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)
             .setConstraints(syncConstraints)

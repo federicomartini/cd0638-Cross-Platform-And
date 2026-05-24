@@ -5,6 +5,7 @@ import com.droidcon.global.data.remote.ConferenceApi
 import com.droidcon.global.data.repository.ConferenceRepository
 import com.droidcon.global.domain.usecase.GetSpeakersUseCase
 import com.droidcon.global.domain.usecase.GetSessionsUseCase
+import com.droidcon.global.domain.usecase.ObserveSpeakerSyncStateUseCase
 import com.droidcon.global.domain.usecase.RefreshConferenceDataUseCase
 
 object SharedGraph {
@@ -20,6 +21,9 @@ object SharedGraph {
     }
     val getSessionsUseCase: GetSessionsUseCase by lazy { GetSessionsUseCase(repository) }
     val getSpeakersUseCase: GetSpeakersUseCase by lazy { GetSpeakersUseCase(repository) }
+    val observeSpeakerSyncStateUseCase: ObserveSpeakerSyncStateUseCase by lazy {
+        ObserveSpeakerSyncStateUseCase(repository)
+    }
     val refreshConferenceDataUseCase: RefreshConferenceDataUseCase by lazy {
         RefreshConferenceDataUseCase(repository)
     }

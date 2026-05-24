@@ -1,10 +1,11 @@
-@file:OptIn(kotlin.time.ExperimentalTime::class)
+@file:OptIn(kotlin.time.ExperimentalTime::class) // Required while kotlinx-datetime bridges parsing to kotlin.time.Instant.
 
 package com.droidcon.global
 
 import com.droidcon.global.domain.model.Session
+import kotlin.time.Instant
 import kotlinx.datetime.DayOfWeek
-import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -25,8 +26,11 @@ private fun pad2(n: Int): String = n.toString().padStart(2, '0')
 
 private fun formatHm(dt: LocalDateTime): String = "${pad2(dt.hour)}:${pad2(dt.minute)}"
 
-private fun formatDdMmYyyy(d: kotlinx.datetime.LocalDate): String =
-    "${pad2(d.dayOfMonth)}/${pad2(d.monthNumber)}/${d.year}"
+@Suppress("DEPRECATION") // monthNumber remains the stable API in kotlinx-datetime 0.7.x for KMP.
+private fun monthNumber(date: LocalDate): Int = date.monthNumber
+
+private fun formatDdMmYyyy(d: LocalDate): String =
+    "${pad2(d.day)}/${pad2(monthNumber(d))}/${d.year}"
 
 private fun englishWeekdayShort(day: DayOfWeek): String =
     when (day) {
@@ -42,13 +46,13 @@ private fun englishWeekdayShort(day: DayOfWeek): String =
 private fun englishMonthShort(monthNumber: Int): String =
     listOf(
         "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
     )[monthNumber - 1]
 
-private fun formatEnglishWeekdayDate(d: kotlinx.datetime.LocalDate): String {
+private fun formatEnglishWeekdayDate(d: LocalDate): String {
     val wd = englishWeekdayShort(d.dayOfWeek)
-    val m = englishMonthShort(d.monthNumber)
-    return "$wd ${d.dayOfMonth} $m ${d.year}"
+    val m = englishMonthShort(monthNumber(d))
+    return "$wd ${d.day} $m ${d.year}"
 }
 
 /** List column: each string is its own line (date / time never merged on one line for cross-day). */
@@ -60,14 +64,14 @@ fun formatSessionTimeRangeForListLines(session: Session): List<String> {
     return if (start.date == end.date) {
         listOf(
             formatDdMmYyyy(start.date),
-            "${formatHm(start)} – ${formatHm(end)}"
+            "${formatHm(start)} – ${formatHm(end)}",
         )
     } else {
         listOf(
             formatDdMmYyyy(start.date),
             formatHm(start),
             formatDdMmYyyy(end.date),
-            formatHm(end)
+            formatHm(end),
         )
     }
 }

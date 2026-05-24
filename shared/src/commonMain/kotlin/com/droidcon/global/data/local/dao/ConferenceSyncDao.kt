@@ -13,8 +13,8 @@ abstract class ConferenceSyncDao {
     @Query("DELETE FROM sessions")
     protected abstract suspend fun deleteAllSessions()
 
-    @Query("DELETE FROM speakers")
-    protected abstract suspend fun deleteAllSpeakers()
+    @Query("DELETE FROM speakers WHERE sessionId = :sessionId")
+    protected abstract suspend fun deleteSpeakersForSession(sessionId: String)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     protected abstract suspend fun insertSessions(items: List<SessionEntity>)
@@ -22,14 +22,24 @@ abstract class ConferenceSyncDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     protected abstract suspend fun insertSpeakers(items: List<SpeakerEntity>)
 
+    /** Replaces session rows only; speaker rows are updated per session elsewhere. */
     @Transaction
-    open suspend fun replaceAll(
-        sessions: List<SessionEntity>,
-        speakers: List<SpeakerEntity>
-    ) {
+    open suspend fun replaceSessions(sessions: List<SessionEntity>) {
         deleteAllSessions()
-        deleteAllSpeakers()
-        insertSessions(sessions)
-        insertSpeakers(speakers)
+        if (sessions.isNotEmpty()) {
+            insertSessions(sessions)
+        }
+    }
+
+    /** Replaces speakers for one session without touching other sessions or session rows. */
+    @Transaction
+    open suspend fun replaceSpeakersForSession(
+        sessionId: String,
+        speakers: List<SpeakerEntity>,
+    ) {
+        deleteSpeakersForSession(sessionId)
+        if (speakers.isNotEmpty()) {
+            insertSpeakers(speakers)
+        }
     }
 }
