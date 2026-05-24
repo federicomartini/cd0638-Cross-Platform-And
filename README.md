@@ -194,7 +194,7 @@ To install on a connected device or emulator:
 
 ## Application Screenshots
 
-The following screenshots show the application running on an Android Studio Pixel 10 emulator.
+The following screenshots show the application running on Android (Pixel emulator) and iOS (iPhone simulator).
 
 ### Android - Session List
 
@@ -219,6 +219,12 @@ Session detail showing speaker fields (`name`, `company`, `bio`, `avatar`, IDs),
 Additional runtime capture of the app interaction flow on emulator.
 
 ![Android additional state](./screenshots/Screenshot_20260505_115334.png)
+
+### iOS - Session List (iPhone 16 Pro Simulator)
+
+Conference sessions loaded on iOS with progressive speaker sync (list visible immediately while speaker details populate).
+
+![iOS session list](./screenshots/Simulator%20Screenshot%20-%20iPhone%2016%20Pro%20-%202026-05-24%20at%2022.31.25.png)
 
 ## Next Steps
 
